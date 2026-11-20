@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neuron Drivers v2 — Traction</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#f1f2f5;--panel:#fff;--ink:#161a22;--muted:#596270;--line:#d8dce4;
+  --road:#cdd3dc;--edge:#7d8795;--infield:#eceef3;
+  --pos:#de3f28;--neg:#2b6ad6;--lead:#de3f28;--car:#2a3140;--dead:#8a94a3;
+  --nodeoff:#dde1e9;--focus:#2b6ad6;--display:"Space Grotesk",Inter,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1218;--panel:#171b23;--ink:#e8ebf0;--muted:#9aa3b0;--line:#2a303b;
+  --road:#2a303b;--edge:#5d6776;--infield:#12161d;
+  --pos:#ff6a4d;--neg:#5f9cff;--lead:#ff5a3c;--car:#c9d0dc;--dead:#6b7585;
+  --nodeoff:#262c37;--focus:#7fb0ff;color-scheme:dark;
+}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:22px 16px 56px}
+.wrap{max-width:1120px;margin:0 auto;display:grid;gap:18px}
+h1{font:600 30px/1.1 var(--display);letter-spacing:-.02em;margin:0 0 6px}
+h2{font:600 15px/1.3 var(--display);letter-spacing:-.005em;margin:0}
+.lede{margin:0;max-width:62ch;color:var(--muted);text-wrap:pretty}
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media(min-width:900px){.grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}}
+.col{display:grid;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.sub{color:var(--muted);font-size:12px}
+canvas{display:block;width:100%}
+#trackCanvas{aspect-ratio:3/2;border-radius:6px;cursor:pointer;touch-action:manipulation}
+#netCanvas{height:280px}
+#chartCanvas{height:170px}
+.hint{margin:8px 0 0;font-size:12px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px;margin:12px 0 0}
+@media(max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{min-width:0}
+.stat dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat dd{margin:2px 0 0;font:600 21px/1.2 var(--display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat dd small{font:500 12px Inter,system-ui,sans-serif;color:var(--muted);margin-left:3px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.field{display:inline-flex;align-items:center;gap:8px}
+.field>span{font-size:12px;color:var(--muted)}
+button,select{font:500 13px Inter,system-ui,sans-serif;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;min-height:36px;padding:0 12px;cursor:pointer}
+button:hover,select:hover{border-color:var(--edge)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-width:44px;padding:0 10px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.meters{display:grid;gap:6px;margin-top:10px}
+.meter{display:grid;grid-template-columns:40px minmax(0,1fr) 76px;align-items:center;gap:8px;font-size:12px}
+.meter>span:first-child{color:var(--muted)}
+.meter>span:last-child{font-variant-numeric:tabular-nums;text-align:right}
+.m-track{position:relative;height:8px;background:var(--nodeoff);border-radius:4px;overflow:hidden}
+.m-track.mid::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted)}
+.m-fill{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--pos)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 0 0;padding:0;list-style:none;font-size:12px;color:var(--muted)}
+.legend li{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:18px;height:4px;border-radius:2px}
+.swatch.pos{background:var(--pos)}.swatch.neg{background:var(--neg)}
+.swatch.thick{height:7px;background:var(--edge)}
+.how{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr));padding-top:4px}
+@media(max-width:760px){.how{grid-template-columns:minmax(0,1fr)}}
+.how div{min-width:0}
+.how h3{font:600 13px/1.3 var(--display);margin:0 0 4px}
+.how p{margin:0;font-size:13px;color:var(--muted);text-wrap:pretty}
+.how b{font-family:var(--display);color:var(--lead);margin-right:6px;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Neuron Drivers v2</h1>
+    <p class="lede">Same learning loop, real tires. The cars are faster now, they can brake, and if they enter a corner too hot the rear steps out. A car that crawls for 3 seconds dies.</p>
+  </header>
+
+  <main class="grid">
+    <div class="col">
+      <section class="panel" aria-label="Track">
+        <canvas id="trackCanvas" role="img" aria-label="Top-down view of a race track with forty small cars"></canvas>
+        <p class="hint" id="trackHint">Tap a car to watch its brain. Tap empty road to follow the leader.</p>
+        <dl class="stats">
+          <div class="stat"><dt>Generation</dt><dd id="sGen">1</dd></div>
+          <div class="stat"><dt>Cars running</dt><dd id="sAlive">40<small>/ 40</small></dd></div>
+          <div class="stat"><dt>Best this round</dt><dd id="sBest">0.00<small>laps</small></dd></div>
+          <div class="stat"><dt>Best ever</dt><dd id="sEver">0.00<small>laps</small></dd></div>
+        </dl>
+        <div class="controls">
+          <div class="field"><span id="speedLabel">Speed</span>
+            <div class="seg" role="group" aria-labelledby="speedLabel">
+              <button type="button" data-speed="1" aria-pressed="false">1×</button>
+              <button type="button" data-speed="4" aria-pressed="true">4×</button>
+              <button type="button" data-speed="16" aria-pressed="false">16×</button>
+              <button type="button" data-speed="64" aria-pressed="false">64×</button>
+            </div>
+          </div>
+          <button type="button" id="btnPause" aria-pressed="false">Pause</button>
+          <button type="button" id="btnTrack">New track</button>
+          <button type="button" id="btnRestart">Restart</button>
+          <label class="field" for="selBrain"><span>Brain size</span>
+            <select id="selBrain">
+              <option value="tiny">Tiny, 13 neurons</option>
+              <option value="small" selected>Small, 22 neurons</option>
+              <option value="large">Large, 30 neurons</option>
+              <option value="huge">Huge, 44 neurons</option>
+              <option value="giant">Giant, 120 neurons</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Neural network">
+        <div class="panel-head">
+          <h2 id="netTitle">Inside the lead car's brain</h2>
+          <span class="sub" id="netCount">22 neurons</span>
+        </div>
+        <canvas id="netCanvas" role="img" aria-label="Diagram of the selected car's neural network"></canvas>
+        <div class="meters">
+          <div class="meter"><span>Steer</span><div class="m-track mid"><div class="m-fill" id="steerFill"></div></div><span id="steerVal">straight</span></div>
+          <div class="meter"><span>Throttle</span><div class="m-track mid"><div class="m-fill" id="gasFill"></div></div><span id="gasVal">0%</span></div>
+          <div class="meter"><span>Slip</span><div class="m-track"><div class="m-fill" id="slipFill"></div></div><span id="slipVal">0%</span></div>
+        </div>
+        <ul class="legend">
+          <li><span class="swatch pos"></span>positive</li>
+          <li><span class="swatch neg"></span>negative</li>
+          <li><span class="swatch thick"></span>strong</li>
+        </ul>
+      </section>
+
+      <section class="panel" aria-label="Learning curve">
+        <div class="panel-head">
+          <h2>Best car in each generation</h2>
+          <span class="sub">laps in 30 seconds</span>
+        </div>
+        <canvas id="chartCanvas" role="img" aria-label="Line chart of best distance per generation"></canvas>
+      </section>
+    </div>
+  </main>
+
+  <section class="how" aria-label="How the cars learn">
+    <div><h3><b>1</b>Drive</h3><p>Each car reads five distance sensors, its forward speed, and its sideways slip. Its network outputs steering and a signed throttle (negative = brake).</p></div>
+    <div><h3><b>2</b>Slide</h3><p>Grip falls as speed and steering demand rise. A car that enters a corner too hot keeps sideways velocity and drifts wide. Forward speed under 2 for 3 seconds kills it.</p></div>
+    <div><h3><b>3</b>Evolve</h3><p>The cars that got farthest win. Winners are copied with small mutations. The next generation drives the same road with slightly different brains.</p></div>
+  </section>
+</div>
+
+<script>
+(function(root){
+'use strict';
+
+// =====================================================================
+// CONSTANTS
+// =====================================================================
+const W = 900, H = 600;
+const HALF = 22;
+const SENSOR_ANGLES = [-70,-35,0,35,70].map(function(d){return d*Math.PI/180;});
+const SENSOR_LEN = 170;
+const MAX_STEPS = 1800;      // 30 s per generation
+const STALL_STEPS = 150;     // 2.5 s no forward progress = dead
+const FPS = 60;
+
+// --- PHYSICS (tune these three grip numbers if cars spin or never slide) ---
+const MAXV = 14;              // top speed (was 6)
+const MINV = 0;               // reverse allowed at MINV..0
+const MAX_REVERSE = 3;        // reverse speed cap
+const TURN = 0.085;           // steering rate per step
+const GRIP_BASE = 0.92;       // lateral grip at rest (1 = rails, 0 = ice)
+const GRIP_SPEED_K = 0.006;   // grip lost per unit of speed^2
+const GRIP_STEER_K = 0.35;    // extra grip lost when steering hard
+const GRIP_FLOOR = 0.15;      // never less grip than this
+const TRACTION = 6.0;         // max longitudinal acceleration
+const BRAKE = 10.0;           // max deceleration
+const MIN_SPEED = 2.0;        // forward-speed floor for the death timer
+const SLOW_STEPS = 180;       // 3 s under the floor = dead
+// ---------------------------------------------------------------------------
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){var u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+// =====================================================================
+// TRACK (unchanged from v1)
+// =====================================================================
+var MIN_RADIUS = 46;
+var rejects = {bounds:0,curve:0,pinch:0,shape:0};
+function buildTrackAttempt(rnd,amp,needOpp){
+  var cx=W/2, cy=H/2, i, k;
+  var harm=[[2,0.20],[3,0.17],[4,0.11],[5,0.08]].map(function(h){
+    return {k:h[0],a:(0.35+rnd()*0.65)*h[1]*amp,ph:rnd()*Math.PI*2};
+  });
+  var dense=[], S=360;
+  for(i=0;i<S;i++){
+    var th=i/S*Math.PI*2, r=1;
+    for(k=0;k<harm.length;k++) r+=harm[k].a*Math.cos(harm[k].k*th+harm[k].ph);
+    dense.push([cx+Math.cos(th)*W*0.36*r, cy+Math.sin(th)*H*0.34*r]);
+  }
+  var m=dense.length, cum=new Float64Array(m+1);
+  for(i=0;i<m;i++){
+    var q=dense[(i+1)%m], p=dense[i];
+    cum[i+1]=cum[i]+Math.hypot(q[0]-p[0],q[1]-p[1]);
+  }
+  var L=cum[m], M=Math.round(L/7), ds=L/M;
+  var px=new Float64Array(M), py=new Float64Array(M), seg=0;
+  for(i=0;i<M;i++){
+    var target=i*ds;
+    while(seg<m-1 && cum[seg+1]<=target) seg++;
+    var f=(target-cum[seg])/(cum[seg+1]-cum[seg]||1);
+    var A=dense[seg], B=dense[(seg+1)%m];
+    px[i]=A[0]+(B[0]-A[0])*f; py[i]=A[1]+(B[1]-A[1])*f;
+  }
+  var minR=Infinity, lo=HALF+8;
+  for(i=0;i<M;i++){
+    var a0=(i-2+M)%M, a1=(i+2)%M;
+    var v1x=px[i]-px[a0], v1y=py[i]-py[a0], v2x=px[a1]-px[i], v2y=py[a1]-py[i];
+    var ang=Math.abs(Math.atan2(v1x*v2y-v1y*v2x, v1x*v2x+v1y*v2y));
+    if(ang>1e-6) minR=Math.min(minR, 2*ds/ang);
+    if(px[i]<lo||px[i]>W-lo||py[i]<lo||py[i]>H-lo){rejects.bounds++;return null;}
+  }
+  if(minR<MIN_RADIUS){rejects.curve++;return null;}
+  var pos=0, neg=0;
+  for(i=0;i<M;i++){
+    var b0=(i-1+M)%M, b1=(i+1)%M;
+    var s1x=px[i]-px[b0], s1y=py[i]-py[b0], s2x=px[b1]-px[i], s2y=py[b1]-py[i];
+    var sa=Math.atan2(s1x*s2y-s1y*s2x, s1x*s2x+s1y*s2y);
+    if(sa>0) pos+=sa; else neg-=sa;
+  }
+  if(Math.min(pos,neg)<needOpp){rejects.shape++;return null;}
+  var minGap2=(2*HALF+18)*(2*HALF+18), j;
+  for(i=0;i<M;i++) for(j=i+1;j<M;j++){
+    var sep=Math.min(j-i, M-(j-i));
+    if(sep<45) continue;
+    var dx=px[i]-px[j], dy=py[i]-py[j];
+    if(dx*dx+dy*dy<minGap2){rejects.pinch++;return null;}
+  }
+  var lx=new Float64Array(M), ly=new Float64Array(M), rx=new Float64Array(M), ry=new Float64Array(M), ang0=new Float64Array(M);
+  for(i=0;i<M;i++){
+    var tx=px[(i+1)%M]-px[(i-1+M)%M], ty=py[(i+1)%M]-py[(i-1+M)%M];
+    var tl=Math.hypot(tx,ty)||1; tx/=tl; ty/=tl;
+    ang0[i]=Math.atan2(ty,tx);
+    lx[i]=px[i]-ty*HALF; ly[i]=py[i]+tx*HALF;
+    rx[i]=px[i]+ty*HALF; ry[i]=py[i]-tx*HALF;
+  }
+  return {n:M, ds:ds, length:L, half:HALF, cx:px, cy:py, lx:lx, ly:ly, rx:rx, ry:ry, ang:ang0, minR:minR};
+}
+function makeTrack(seed){
+  for(var attempt=0; attempt<3000; attempt++){
+    var amp = attempt<1500 ? 1.15 : 0.8;
+    var needOpp = attempt<1000 ? 2.6 : attempt<2000 ? 1.6 : 0.6;
+    var t = buildTrackAttempt(mulberry32(seed*7919+attempt*104729+13), amp, needOpp);
+    if(t){ t.seed=seed; return t; }
+  }
+  throw new Error('no valid track for seed '+seed);
+}
+
+// =====================================================================
+// BRAIN
+// =====================================================================
+function brainSize(s){var n=0;for(var l=1;l<s.length;l++)n+=s[l-1]*s[l]+s[l];return n;}
+function randomBrain(s,r){var g=new Float64Array(brainSize(s));for(var i=0;i<g.length;i++)g[i]=gauss(r)*0.6;return {sizes:s,g:g};}
+function cloneBrain(b){return {sizes:b.sizes,g:Float64Array.from(b.g)};}
+function layerOffsets(s){var o=[0],off=0;for(var l=1;l<s.length;l++){o.push(off);off+=s[l-1]*s[l]+s[l];}return o;}
+
+function forward(brain, input, acts){
+  var s=brain.sizes,g=brain.g,off=0,l,i,j;
+  for(i=0;i<s[0];i++) acts[0][i]=input[i];
+  for(l=1;l<s.length;l++){
+    var nin=s[l-1],nout=s[l],prev=acts[l-1],cur=acts[l];
+    for(j=0;j<nout;j++){
+      var sum=g[off+nin*nout+j], base=off+j*nin;
+      for(i=0;i<nin;i++) sum+=prev[i]*g[base+i];
+      cur[j]=Math.tanh(sum);
+    }
+    off+=nin*nout+nout;
+  }
+}
+
+// =====================================================================
+// SENSORS
+// =====================================================================
+function rayWall(ox,oy,dx,dy,wx,wy,n,i0,count,maxT){
+  var best=maxT;
+  for(var k=0;k<count;k++){
+    var i=(i0+k)%n; if(i<0) i+=n;
+    var j=i+1===n?0:i+1;
+    var ax=wx[i], ay=wy[i], ex=wx[j]-ax, ey=wy[j]-ay;
+    var den=dx*ey-dy*ex;
+    if(den===0) continue;
+    var t=((ax-ox)*ey-(ay-oy)*ex)/den;
+    if(t<0||t>=best) continue;
+    var u=((ax-ox)*dy-(ay-oy)*dx)/den;
+    if(u>=0&&u<=1) best=t;
+  }
+  return best;
+}
+
+// sensor vector: 5 rays + forward speed + lateral slip = 7 inputs
+function senseCar(car, tr){
+  var n=tr.n, i0=car.idx-6;
+  for(var s=0;s<5;s++){
+    var a=car.angle+SENSOR_ANGLES[s], dx=Math.cos(a), dy=Math.sin(a);
+    var t=rayWall(car.x,car.y,dx,dy,tr.lx,tr.ly,n,i0,46,SENSOR_LEN);
+    t=rayWall(car.x,car.y,dx,dy,tr.rx,tr.ry,n,i0,46,t);
+    car.sens[s]=t;
+    car.hit[2*s]=car.x+dx*t;
+    car.hit[2*s+1]=car.y+dy*t;
+    car.input[s]=1-t/SENSOR_LEN;
+  }
+  car.input[5]=car.vForward/MAXV;
+  car.input[6]=Math.min(1, Math.abs(car.vLateral)/MAXV);
+}
+
+// =====================================================================
+// CAR
+// =====================================================================
+function newCar(tr, brain, id){
+  var car = {
+    id:id, brain:brain,
+    acts: brain.sizes.map(function(s){return new Float64Array(s);}),
+    x:tr.cx[0], y:tr.cy[0],
+    angle:tr.ang[0],
+    vx:2*Math.cos(tr.ang[0]), vy:2*Math.sin(tr.ang[0]),
+    vForward:2, vLateral:0, speed:2,
+    alive:true, reason:'', idx:0, lap:0, prog:0, bestProg:0, dist:0,
+    lastImprove:0, slowSteps:0, steps:0, steer:0, throttle:0,
+    sens:new Float64Array(5), hit:new Float64Array(10), input:new Float64Array(7)
+  };
+  senseCar(car, tr);
+  forward(brain, car.input, car.acts);
+  return car;
+}
+
+// =====================================================================
+// STEP (the physics rewrite)
+// =====================================================================
+function stepCar(car, tr){
+  // --- 1. ask the brain ---
+  forward(car.brain, car.input, car.acts);
+  var out = car.acts[car.acts.length-1];
+  car.steer = out[0];
+  car.throttle = out[1];
+
+  // --- 2. decompose velocity into car frame ---
+  var cosA = Math.cos(car.angle), sinA = Math.sin(car.angle);
+  var vF = car.vx*cosA + car.vy*sinA;      // forward component
+  var vL = -car.vx*sinA + car.vy*cosA;     // lateral (sideways) component
+  var speed = Math.hypot(car.vx, car.vy);
+
+  // --- 3. grip: falls with speed^2 and steering demand ---
+  var grip = GRIP_BASE - GRIP_SPEED_K*speed*speed - GRIP_STEER_K*Math.abs(out[0]);
+  grip = Math.max(GRIP_FLOOR, Math.min(0.98, grip));
+
+  // --- 4. steering rotates the heading ---
+  car.angle += out[0]*TURN;
+
+  // --- 5. throttle / brake along the new heading ---
+  var accel;
+  if(out[1] >= 0){
+    accel = out[1]*TRACTION*grip;          // traction-limited acceleration
+  } else {
+    accel = out[1]*BRAKE;                  // braking not traction-limited here
+  }
+  vF += accel;
+
+  // --- 6. lateral damping: grip kills sideways velocity ---
+  vL *= (1 - grip);
+
+  // --- 7. clamp forward speed (reverse is slow) ---
+  if(vF > MAXV) vF = MAXV;
+  if(vF < -MAX_REVERSE) vF = -MAX_REVERSE;
+
+  // --- 8. recompose and integrate ---
+  cosA = Math.cos(car.angle); sinA = Math.sin(car.angle);
+  car.vx = vF*cosA - vL*sinA;
+  car.vy = vF*sinA + vL*cosA;
+  car.x += car.vx;
+  car.y += car.vy;
+  car.vForward = vF;
+  car.vLateral = vL;
+  car.speed = Math.hypot(car.vx, car.vy);
+  car.steps++;
+
+  // --- 9. nearest centreline index, lap counting ---
+  var n=tr.n, bi=car.idx, bd=1e18, k;
+  for(k=-4;k<=8;k++){
+    var i=car.idx+k;
+    if(i<0) i+=n; else if(i>=n) i-=n;
+    var dx=car.x-tr.cx[i], dy=car.y-tr.cy[i], d=dx*dx+dy*dy;
+    if(d<bd){bd=d;bi=i;}
+  }
+  var delta=bi-car.idx;
+  if(delta < -n/2) car.lap++; else if(delta > n/2) car.lap--;
+  car.idx=bi;
+  car.dist=Math.sqrt(bd);
+  car.prog=(car.lap*n+bi)*tr.ds;
+
+  // --- 10. death checks ---
+  if(car.dist > HALF - 2.5){ car.alive=false; car.reason='wall'; }
+  else {
+    // forward progress stall (a high-speed spinner still dies here)
+    if(car.prog > car.bestProg + 0.5){ car.bestProg=car.prog; car.lastImprove=car.steps; }
+    if(car.steps - car.lastImprove > STALL_STEPS){ car.alive=false; car.reason='stalled'; }
+    // minimum forward speed timer
+    if(vF < MIN_SPEED) car.slowSteps++;
+    else car.slowSteps = 0;
+    if(car.slowSteps > SLOW_STEPS){ car.alive=false; car.reason='too slow'; }
+  }
+
+  if(car.alive) senseCar(car, tr);
+}
+
+// =====================================================================
+// EVOLUTION (unchanged from v1)
+// =====================================================================
+function mutate(b, rnd, rate, str){
+  var g=b.g;
+  for(var i=0;i<g.length;i++){
+    if(rnd()<rate) g[i]+=gauss(rnd)*str;
+    if(rnd()<0.004) g[i]=gauss(rnd)*0.8;
+  }
+  return b;
+}
+function crossover(a,b,rnd){
+  var c=cloneBrain(a);
+  for(var i=0;i<c.g.length;i++) if(rnd()<0.5) c.g[i]=b.g[i];
+  return c;
+}
+function evolve(w){
+  var cars=w.cars.slice().sort(function(a,b){return b.bestProg-a.bestProg;});
+  var pop=cars.length, next=[], i;
+  var elites=3, fresh=2, parents=Math.min(8,pop);
+  for(i=0;i<elites;i++) next.push(cloneBrain(cars[i].brain));
+  function pick(){ return cars[Math.floor(Math.pow(w.rnd(),2)*parents)].brain; }
+  while(next.length < pop-fresh){
+    var child = w.rnd()<0.3 ? crossover(pick(),pick(),w.rnd) : cloneBrain(pick());
+    next.push(mutate(child, w.rnd, w.mutRate, w.mutStr));
+  }
+  while(next.length<pop) next.push(randomBrain(w.sizes,w.rnd));
+  return next;
+}
+
+// =====================================================================
+// WORLD
+// =====================================================================
+function spawn(w){
+  w.step=0;
+  w.cars=w.brains.map(function(b,i){return newCar(w.track,b,i);});
+  w.alive=w.cars.length;
+}
+function createWorld(opts){
+  var w={
+    sizes:opts.sizes, popSize:opts.popSize||40,
+    rnd:mulberry32(opts.seed||1),
+    track:makeTrack(opts.trackSeed||7),
+    gen:1, step:0, cars:[], brains:null,
+    history:[], markers:[], bestEver:0,
+    mutRate:0.12, mutStr:0.35, alive:0
+  };
+  w.brains=[];
+  for(var i=0;i<w.popSize;i++) w.brains.push(randomBrain(w.sizes,w.rnd));
+  spawn(w);
+  return w;
+}
+function endGeneration(w){
+  var best=0;
+  for(var i=0;i<w.cars.length;i++) best=Math.max(best,w.cars[i].bestProg);
+  var laps=best/w.track.length;
+  w.history.push({gen:w.gen, laps:laps});
+  w.bestEver=Math.max(w.bestEver, laps);
+  w.brains=evolve(w);
+  w.gen++;
+  spawn(w);
+}
+function stepWorld(w){
+  var alive=0;
+  for(var i=0;i<w.cars.length;i++){
+    var c=w.cars[i];
+    if(c.alive){ stepCar(c,w.track); if(c.alive) alive++; }
+  }
+  w.step++;
+  w.alive=alive;
+  if(alive===0 || w.step>=MAX_STEPS){ endGeneration(w); return true; }
+  return false;
+}
+function setTrack(w, seed){
+  w.track=makeTrack(seed);
+  w.markers.push(w.history.length);
+  spawn(w);
+}
+
+var api={
+  W:W,H:H,HALF:HALF,MAXV:MAXV,MAX_STEPS:MAX_STEPS,FPS:FPS,
+  SENSOR_ANGLES:SENSOR_ANGLES,SENSOR_LEN:SENSOR_LEN,
+  MIN_SPEED:MIN_SPEED,SLOW_STEPS:SLOW_STEPS,
+  makeTrack:makeTrack, createWorld:createWorld, stepWorld:stepWorld, setTrack:setTrack,
+  rejects:rejects,
+  brainSize:brainSize, weightAt:function(b,l,j,i){var s=b.sizes,off=0;for(var k=1;k<l;k++)off+=s[k-1]*s[k]+s[k];return b.g[off+j*s[l-1]+i];},
+  layerOffsets:layerOffsets, mulberry32:mulberry32
+};
+if(typeof module!=='undefined'&&module.exports) module.exports=api;
+else root.NeuronDrivers=api;
+
+})(typeof window!=='undefined'?window:this);
+</script>
+
+<script>
+(function(){
+'use strict';
+var ND = window.NeuronDrivers;
+var $ = function(id){return document.getElementById(id);};
+
+// 7 inputs now (5 sensors + forward speed + slip)
+var BRAINS = {
+  tiny:  [7,5,2],
+  small: [7,8,6,2],
+  large: [7,12,10,2],
+  huge:  [7,20,16,2],
+  giant: [7,64,48,2]
+};
+var NET_HEIGHT = {tiny:220, small:280, large:320, huge:380, giant:520};
+var INPUT_NAMES = ['left','f-l','ahead','f-r','right','fwd','slip'];
+var OUTPUT_NAMES = ['steer','throttle'];
+var POP = 40;
+
+var brainKey='small', trackSeed=7, speed=4, paused=false;
+var world=newWorld();
+var followed=null, manual=null;
+var effects=[];
+var staticDirty=true, chartDirty=true, histSeen=0;
+
+function newWorld(){
+  return ND.createWorld({sizes:BRAINS[brainKey], popSize:POP, trackSeed:trackSeed, seed:(Math.random()*1e9)|0});
+}
+
+var pal={};
+var NAMES=['bg','panel','ink','muted','line','road','edge','infield','pos','neg','lead','car','dead','nodeoff'];
+function readPalette(){
+  var cs=getComputedStyle(document.documentElement);
+  NAMES.forEach(function(k){ pal[k]=cs.getPropertyValue('--'+k).trim()||'#888'; });
+  staticDirty=true; chartDirty=true;
+}
+var rgbCache={};
+function rgb(hex){
+  if(rgbCache[hex]) return rgbCache[hex];
+  var h=hex.replace('#','');
+  if(h.length===3) h=h.split('').map(function(c){return c+c;}).join('');
+  var v=[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+  rgbCache[hex]=v; return v;
+}
+function mix(a,b,t){
+  var x=rgb(a),y=rgb(b);
+  return 'rgb('+Math.round(x[0]+(y[0]-x[0])*t)+','+Math.round(x[1]+(y[1]-x[1])*t)+','+Math.round(x[2]+(y[2]-x[2])*t)+')';
+}
+
+var trackCv=$('trackCanvas'), netCv=$('netCanvas'), chartCv=$('chartCanvas');
+var tctx=trackCv.getContext('2d'), nctx=netCv.getContext('2d'), cctx=chartCv.getContext('2d');
+var staticCv=document.createElement('canvas'), sctx=staticCv.getContext('2d');
+var FONT='Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+
+function fit(cv){
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var w=Math.max(1,Math.round(cv.clientWidth*dpr)), h=Math.max(1,Math.round(cv.clientHeight*dpr));
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+  cv._dpr=dpr;
+}
+function layout(){
+  netCv.style.height=NET_HEIGHT[brainKey]+'px';
+  fit(trackCv); fit(netCv); fit(chartCv);
+  if(staticCv.width!==trackCv.width||staticCv.height!==trackCv.height){
+    staticCv.width=trackCv.width; staticCv.height=trackCv.height;
+  }
+  staticDirty=true; chartDirty=true;
+}
+
+function trace(ctx,xs,ys,n){
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  for(var i=1;i<n;i++) ctx.lineTo(xs[i],ys[i]);
+  ctx.closePath();
+}
+
+function renderStatic(){
+  var tr=world.track, sc=staticCv.width/ND.W, n=tr.n, i;
+  sctx.setTransform(1,0,0,1,0,0);
+  sctx.fillStyle=pal.infield; sctx.fillRect(0,0,staticCv.width,staticCv.height);
+  sctx.setTransform(sc,0,0,sc,0,0);
+  sctx.strokeStyle=pal.line; sctx.globalAlpha=0.5; sctx.lineWidth=1;
+  sctx.beginPath();
+  for(i=50;i<ND.W;i+=50){sctx.moveTo(i,0);sctx.lineTo(i,ND.H);}
+  for(i=50;i<ND.H;i+=50){sctx.moveTo(0,i);sctx.lineTo(ND.W,i);}
+  sctx.stroke(); sctx.globalAlpha=1;
+  sctx.lineJoin='round'; sctx.lineCap='round';
+  trace(sctx,tr.cx,tr.cy,n);
+  sctx.strokeStyle=pal.road; sctx.lineWidth=ND.HALF*2; sctx.stroke();
+  sctx.strokeStyle=pal.edge; sctx.lineWidth=1.6;
+  trace(sctx,tr.lx,tr.ly,n); sctx.stroke();
+  trace(sctx,tr.rx,tr.ry,n); sctx.stroke();
+  sctx.setLineDash([6,10]); sctx.globalAlpha=0.55; sctx.lineWidth=1;
+  sctx.strokeStyle=pal.muted;
+  trace(sctx,tr.cx,tr.cy,n); sctx.stroke();
+  sctx.setLineDash([]); sctx.globalAlpha=1;
+  sctx.font='600 10px '+FONT; sctx.textAlign='center'; sctx.textBaseline='middle';
+  [0.25,0.5,0.75].forEach(function(f){
+    var k=Math.round(f*n), nx=tr.rx[k]-tr.lx[k], ny=tr.ry[k]-tr.ly[k];
+    sctx.strokeStyle=pal.edge; sctx.lineWidth=1;
+    sctx.beginPath(); sctx.moveTo(tr.lx[k],tr.ly[k]); sctx.lineTo(tr.rx[k],tr.ry[k]); sctx.stroke();
+    var l=Math.hypot(nx,ny)||1;
+    sctx.fillStyle=pal.muted;
+    sctx.fillText(Math.round(f*100)+'%', tr.cx[k]-nx/l*(ND.HALF+13), tr.cy[k]-ny/l*(ND.HALF+13));
+  });
+  var sx=tr.lx[0], sy=tr.ly[0], ex=tr.rx[0], ey=tr.ry[0];
+  sctx.lineWidth=4; sctx.strokeStyle=pal.ink;
+  sctx.beginPath(); sctx.moveTo(sx,sy); sctx.lineTo(ex,ey); sctx.stroke();
+  sctx.lineWidth=4; sctx.strokeStyle=pal.panel; sctx.setLineDash([4,4]);
+  sctx.beginPath(); sctx.moveTo(sx,sy); sctx.lineTo(ex,ey); sctx.stroke();
+  sctx.setLineDash([]);
+  staticDirty=false;
+}
+
+function chooseFollow(){
+  var cars=world.cars, i, lead=null;
+  if(manual && manual.alive && cars.indexOf(manual)>=0) return manual;
+  manual=null;
+  for(i=0;i<cars.length;i++){
+    var c=cars[i];
+    if(c.alive && (!lead||c.prog>lead.prog)) lead=c;
+  }
+  if(!lead) return followed&&cars.indexOf(followed)>=0?followed:cars[0];
+  if(followed&&followed.alive&&cars.indexOf(followed)>=0&&followed.prog>lead.prog-40) return followed;
+  return lead;
+}
+
+function drawCarShape(ctx,c,fill,alpha,big){
+  var len=big?16:12.5, wid=big?8.5:6.5;
+  ctx.save();
+  ctx.translate(c.x,c.y); ctx.rotate(c.angle);
+  ctx.globalAlpha=alpha; ctx.fillStyle=fill;
+  ctx.fillRect(-len/2,-wid/2,len,wid);
+  if(big){ctx.globalAlpha=1;ctx.lineWidth=1.4;ctx.strokeStyle=pal.panel;ctx.strokeRect(-len/2,-wid/2,len,wid);}
+  ctx.restore();
+}
+
+function drawTrack(fol){
+  var cars=world.cars, sc=trackCv.width/ND.W, i;
+  if(staticDirty) renderStatic();
+  tctx.setTransform(1,0,0,1,0,0);
+  tctx.drawImage(staticCv,0,0);
+  tctx.setTransform(sc,0,0,sc,0,0);
+
+  // skid trails for sliding cars (render under the bodies)
+  for(i=0;i<cars.length;i++){
+    var c=cars[i];
+    if(!c.alive) continue;
+    var slip=Math.abs(c.vLateral);
+    if(slip < 1.2) continue;
+    var a=Math.min(0.55, slip/MAXV_DISPLAY);
+    var bx=c.x-Math.cos(c.angle)*6, by=c.y-Math.sin(c.angle)*6;
+    tctx.strokeStyle=mix(pal.road, pal.car, 0.4);
+    tctx.globalAlpha=a; tctx.lineWidth=2.2;
+    tctx.beginPath(); tctx.moveTo(bx,by);
+    tctx.lineTo(bx-c.vx*1.5, by-c.vy*1.5); tctx.stroke();
+  }
+  tctx.globalAlpha=1;
+
+  for(i=0;i<cars.length;i++) if(!cars[i].alive) drawCarShape(tctx,cars[i],pal.dead,0.28,false);
+  for(i=0;i<cars.length;i++) if(cars[i].alive && cars[i]!==fol) drawCarShape(tctx,cars[i],pal.car,0.6,false);
+
+  for(i=effects.length-1;i>=0;i--){
+    var e=effects[i]; e.t++;
+    if(e.t>22){effects.splice(i,1);continue;}
+    tctx.globalAlpha=1-e.t/22;
+    tctx.strokeStyle=pal.pos; tctx.lineWidth=1.6;
+    tctx.beginPath(); tctx.arc(e.x,e.y,4+e.t*0.9,0,Math.PI*2); tctx.stroke();
+  }
+  tctx.globalAlpha=1;
+
+  if(fol){
+    for(i=0;i<5;i++){
+      var near=fol.input[i];
+      tctx.strokeStyle=mix(pal.muted,pal.pos,Math.min(1,near*1.4));
+      tctx.globalAlpha=0.5+0.5*near; tctx.lineWidth=1.2;
+      tctx.beginPath(); tctx.moveTo(fol.x,fol.y); tctx.lineTo(fol.hit[2*i],fol.hit[2*i+1]); tctx.stroke();
+      tctx.fillStyle=pal.pos;
+      tctx.beginPath(); tctx.arc(fol.hit[2*i],fol.hit[2*i+1],2.2,0,Math.PI*2); tctx.fill();
+    }
+    tctx.globalAlpha=1;
+    drawCarShape(tctx,fol,pal.lead,1,true);
+    // velocity arrow: shows heading vs actual motion
+    var vlen=Math.hypot(fol.vx,fol.vy);
+    if(vlen>0.3){
+      tctx.strokeStyle=pal.ink; tctx.globalAlpha=0.5; tctx.lineWidth=1.2;
+      tctx.beginPath(); tctx.moveTo(fol.x,fol.y); tctx.lineTo(fol.x+fol.vx*4, fol.y+fol.vy*4); tctx.stroke();
+      tctx.globalAlpha=1;
+    }
+    if(manual===fol){
+      tctx.strokeStyle=pal.ink; tctx.lineWidth=1.2; tctx.setLineDash([3,3]);
+      tctx.beginPath(); tctx.arc(fol.x,fol.y,16,0,Math.PI*2); tctx.stroke(); tctx.setLineDash([]);
+    }
+  }
+}
+var MAXV_DISPLAY = 14;
+
+function drawNet(car){
+  var dpr=netCv._dpr||1, cw=netCv.width/dpr, ch=netCv.height/dpr;
+  nctx.setTransform(dpr,0,0,dpr,0,0);
+  nctx.clearRect(0,0,cw,ch);
+  if(!car) return;
+  var sizes=world.sizes, L=sizes.length, padL=72, padR=44, padT=14, padB=14;
+  var xs=[], ys=[], l,i,j, spacing=1e9;
+  for(l=0;l<L;l++){
+    xs[l]=padL+l*(cw-padL-padR)/(L-1);
+    ys[l]=[];
+    var step=(ch-padT-padB)/sizes[l];
+    spacing=Math.min(spacing,step);
+    for(j=0;j<sizes[l];j++) ys[l][j]=padT+(j+0.5)*step;
+  }
+  var rad=Math.max(2.4,Math.min(8.5,spacing*0.36));
+  var offs=ND.layerOffsets(sizes), g=car.brain.g, acts=car.acts;
+
+  nctx.strokeStyle=pal.edge; nctx.globalAlpha=sizes[1]>30?0.1:0.2; nctx.lineWidth=0.6;
+  nctx.beginPath();
+  for(l=1;l<L;l++){
+    for(j=0;j<sizes[l];j++) for(i=0;i<sizes[l-1];i++){
+      var w0=g[offs[l]+j*sizes[l-1]+i];
+      if(Math.abs(acts[l-1][i]*w0)>=0.12) continue;
+      nctx.moveTo(xs[l-1],ys[l-1][i]); nctx.lineTo(xs[l],ys[l][j]);
+    }
+  }
+  nctx.stroke();
+
+  for(l=1;l<L;l++){
+    for(j=0;j<sizes[l];j++) for(i=0;i<sizes[l-1];i++){
+      var w=g[offs[l]+j*sizes[l-1]+i], sig=acts[l-1][i]*w, str=Math.min(1,Math.abs(sig)*1.3);
+      if(str<0.12) continue;
+      nctx.globalAlpha=0.25+0.75*str;
+      nctx.strokeStyle=sig>=0?pal.pos:pal.neg;
+      nctx.lineWidth=0.7+1.9*Math.min(1,Math.abs(w)/1.2);
+      nctx.beginPath(); nctx.moveTo(xs[l-1],ys[l-1][i]); nctx.lineTo(xs[l],ys[l][j]); nctx.stroke();
+    }
+  }
+  nctx.globalAlpha=1;
+
+  for(l=0;l<L;l++){
+    for(j=0;j<sizes[l];j++){
+      var a=acts[l][j], m=Math.min(1,Math.abs(a)), col=a>=0?pal.pos:pal.neg;
+      nctx.fillStyle=mix(pal.nodeoff,col,m);
+      if(m>0.35){nctx.shadowColor=col;nctx.shadowBlur=14*m;}
+      nctx.beginPath(); nctx.arc(xs[l],ys[l][j],rad,0,Math.PI*2); nctx.fill();
+      nctx.shadowBlur=0;
+      nctx.strokeStyle=pal.edge; nctx.lineWidth=1; nctx.globalAlpha=0.8;
+      nctx.beginPath(); nctx.arc(xs[l],ys[l][j],rad,0,Math.PI*2); nctx.stroke();
+      nctx.globalAlpha=1;
+    }
+  }
+
+  nctx.font='500 11px '+FONT; nctx.fillStyle=pal.muted; nctx.textBaseline='middle';
+  nctx.textAlign='right';
+  for(j=0;j<sizes[0];j++) nctx.fillText(INPUT_NAMES[j], xs[0]-rad-8, ys[0][j]);
+  nctx.textAlign='left';
+  for(j=0;j<sizes[L-1];j++) nctx.fillText(OUTPUT_NAMES[j], xs[L-1]+rad+8, ys[L-1][j]);
+}
+
+function drawChart(){
+  var dpr=chartCv._dpr||1, cw=chartCv.width/dpr, ch=chartCv.height/dpr;
+  cctx.setTransform(dpr,0,0,dpr,0,0);
+  cctx.clearRect(0,0,cw,ch);
+  var hist=world.history, n=hist.length, i;
+  var padL=30, padR=14, padT=12, padB=24;
+  var maxLaps=0;
+  for(i=0;i<n;i++) maxLaps=Math.max(maxLaps,hist[i].laps);
+  var yMax=Math.max(2,Math.ceil(maxLaps*1.05)), yStep=yMax>8?2:1;
+  var xMax=Math.max(10,n);
+  function X(g){return padL+(g-1)/(xMax-1)*(cw-padL-padR);}
+  function Y(v){return padT+(1-v/yMax)*(ch-padT-padB);}
+
+  cctx.font='500 10px '+FONT; cctx.textBaseline='middle'; cctx.textAlign='right';
+  for(var v=0;v<=yMax;v+=yStep){
+    cctx.strokeStyle=pal.line; cctx.globalAlpha=v===0?1:0.7; cctx.lineWidth=1;
+    cctx.beginPath(); cctx.moveTo(padL,Y(v)+0.5); cctx.lineTo(cw-padR,Y(v)+0.5); cctx.stroke();
+    cctx.globalAlpha=1; cctx.fillStyle=pal.muted;
+    cctx.fillText(String(v), padL-6, Y(v));
+  }
+  cctx.textAlign='center'; cctx.textBaseline='top'; cctx.fillStyle=pal.muted;
+  cctx.fillText('gen 1', X(1)+8, ch-padB+8);
+  if(n>1){cctx.textAlign='right'; cctx.fillText('gen '+n, Math.min(cw-padR, X(n)+4), ch-padB+8);}
+
+  cctx.setLineDash([3,3]); cctx.strokeStyle=pal.muted; cctx.lineWidth=1;
+  world.markers.forEach(function(mk){
+    if(mk<1) return;
+    var x=X(mk+0.5);
+    cctx.beginPath(); cctx.moveTo(x,padT); cctx.lineTo(x,ch-padB); cctx.stroke();
+  });
+  cctx.setLineDash([]);
+
+  if(n===0){
+    cctx.textAlign='center'; cctx.textBaseline='middle'; cctx.fillStyle=pal.muted; cctx.font='500 12px '+FONT;
+    cctx.fillText('The first result appears when generation 1 ends', (padL+cw-padR)/2, (padT+ch-padB)/2);
+    return;
+  }
+  cctx.strokeStyle=pal.lead; cctx.lineWidth=2; cctx.lineJoin='round';
+  cctx.beginPath();
+  for(i=0;i<n;i++){var px=X(hist[i].gen),py=Y(hist[i].laps); if(i===0)cctx.moveTo(px,py); else cctx.lineTo(px,py);}
+  cctx.stroke();
+  cctx.fillStyle=pal.lead;
+  for(i=0;i<n;i++){cctx.beginPath();cctx.arc(X(hist[i].gen),Y(hist[i].laps),i===n-1?4:2,0,Math.PI*2);cctx.fill();}
+  var last=hist[n-1];
+  cctx.fillStyle=pal.ink; cctx.font='600 11px '+FONT; cctx.textBaseline='bottom';
+  var lx=X(last.gen), right=lx>cw-60;
+  cctx.textAlign=right?'right':'left';
+  cctx.fillText(last.laps.toFixed(2), lx+(right?-8:8), Y(last.laps)-4);
+}
+
+var cache={};
+function setText(id, html){ if(cache[id]!==html){cache[id]=html; $(id).innerHTML=html;} }
+function laps(v){ return v.toFixed(2)+'<small>laps</small>'; }
+
+function updateStats(fol){
+  var best=0,i;
+  for(i=0;i<world.cars.length;i++) best=Math.max(best, world.cars[i].bestProg);
+  setText('sGen', String(world.gen));
+  setText('sAlive', world.alive+'<small>/ '+POP+'</small>');
+  setText('sBest', laps(best/world.track.length));
+  setText('sEver', laps(world.bestEver));
+  setText('netTitle', manual?('Inside car '+(fol.id+1)+"'s brain"):"Inside the lead car's brain");
+  if(!fol) return;
+  var s=fol.steer, thr=fol.throttle;
+  var steerFill=$('steerFill'), gasFill=$('gasFill'), slipFill=$('slipFill');
+  steerFill.style.left=(s>=0?50:50+s*50)+'%';
+  steerFill.style.width=Math.abs(s)*50+'%';
+  steerFill.style.background = s>=0?'var(--pos)':'var(--neg)';
+  // throttle: -1 (brake) left .. +1 (gas) right, same bar style
+  gasFill.style.left=(thr>=0?50:50+thr*50)+'%';
+  gasFill.style.width=Math.abs(thr)*50+'%';
+  gasFill.style.background = thr>=0?'var(--pos)':'var(--neg)';
+  var slipPct=Math.min(100, Math.abs(fol.vLateral)/MAXV_DISPLAY*100);
+  slipFill.style.width=slipPct+'%';
+  setText('steerVal', Math.abs(s)<0.05?'straight':(s<0?'left ':'right ')+Math.round(Math.abs(s)*100)+'%');
+  setText('gasVal', thr>0.05?('gas '+Math.round(thr*100)+'%'):(thr<-0.05?('brake '+Math.round(-thr*100)+'%'):'coast'));
+  setText('slipVal', slipPct>5?Math.round(slipPct)+'%':'grip');
+}
+
+var last=performance.now(), owed=0;
+function frame(now){
+  var dt=Math.min(50, now-last); last=now;
+  if(!paused){
+    owed+=dt/(1000/60)*speed;
+    var todo=Math.floor(owed); owed-=todo;
+    var t0=performance.now();
+    while(todo-->0){
+      ND.stepWorld(world);
+      if(performance.now()-t0>14){ owed=0; break; }
+    }
+    if(world.history.length!==histSeen){ histSeen=world.history.length; chartDirty=true; }
+  }
+  followed=chooseFollow();
+  drawTrack(followed);
+  drawNet(followed);
+  updateStats(followed);
+  if(chartDirty){ drawChart(); chartDirty=false; }
+  requestAnimationFrame(frame);
+}
+
+function resetView(){ followed=null; manual=null; effects=[]; histSeen=world.history.length; staticDirty=true; chartDirty=true; }
+
+document.querySelectorAll('[data-speed]').forEach(function(b){
+  b.addEventListener('click', function(){
+    speed=parseInt(b.getAttribute('data-speed'),10);
+    document.querySelectorAll('[data-speed]').forEach(function(o){o.setAttribute('aria-pressed', o===b?'true':'false');});
+  });
+});
+$('btnPause').addEventListener('click', function(){
+  paused=!paused;
+  this.textContent=paused?'Resume':'Pause';
+  this.setAttribute('aria-pressed', paused?'true':'false');
+});
+$('btnTrack').addEventListener('click', function(){
+  trackSeed=10+Math.floor(Math.random()*9000);
+  ND.setTrack(world, trackSeed);
+  resetView();
+});
+$('btnRestart').addEventListener('click', function(){ world=newWorld(); resetView(); });
+$('selBrain').addEventListener('change', function(){
+  brainKey=this.value;
+  var total=BRAINS[brainKey].reduce(function(a,b){return a+b;},0);
+  setText('netCount', total+' neurons');
+  world=newWorld(); layout(); resetView();
+});
+
+trackCv.addEventListener('pointerdown', function(ev){
+  var r=trackCv.getBoundingClientRect();
+  var x=(ev.clientX-r.left)/r.width*ND.W, y=(ev.clientY-r.top)/r.height*ND.H;
+  var best=null, bd=30*30;
+  world.cars.forEach(function(c){
+    if(!c.alive) return;
+    var d=(c.x-x)*(c.x-x)+(c.y-y)*(c.y-y);
+    if(d<bd){bd=d;best=c;}
+  });
+  manual=best;
+});
+
+readPalette();
+new MutationObserver(readPalette).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(window.matchMedia){
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  if(mq.addEventListener) mq.addEventListener('change', readPalette);
+}
+layout();
+if(window.ResizeObserver){
+  var ro=new ResizeObserver(function(){layout();});
+  ro.observe(trackCv); ro.observe(netCv); ro.observe(chartCv);
+} else {
+  window.addEventListener('resize', layout);
+}
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){staticDirty=true;chartDirty=true;});
+requestAnimationFrame(frame);
+
+window.__nd={get world(){return world;}};
+})();
+</script>
+</body>
+</html>
